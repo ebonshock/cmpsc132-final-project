@@ -6,10 +6,29 @@
 import os
 
 
+# ANSI escape codes for terminal colors and text formatting
+RED    = "\033[91m"
+CYAN   = "\033[96m"
+YELLOW = "\033[93m"
+GREEN  = "\033[92m"
+BOLD   = "\033[1m"
+RESET  = "\033[0m"  # resets color back to default after each colored print
+
+
 def clear_screen():
     """Clear the terminal screen."""
     # runs a different shell command depending on the OS (Windows vs everything else)
     os.system("cls" if os.name == "nt" else "clear")
+
+
+def colorize(symbol):
+    """Return a colorized version of a player symbol."""
+    # wrap the symbol in the right color codes, or return a blank space if empty
+    if symbol == "X":
+        return f"{RED}{BOLD}X{RESET}"
+    elif symbol == "O":
+        return f"{CYAN}{BOLD}O{RESET}"
+    return " "
 
 
 def print_board(board):
@@ -21,7 +40,8 @@ def print_board(board):
     for i, row in enumerate(board):
         row_str = f"{i} |"
         for cell in row:
-            row_str += f" {cell} |"
+            display = colorize(cell) if cell != " " else " "
+            row_str += f" {display} |"
         print(row_str)
         print("  +---+---+---+")
     print()
@@ -107,41 +127,135 @@ def get_move(board, player):
             print("Invalid input. Please enter integers only. Try again.")
 
 
+def get_player_names():
+    """Prompt for custom player names. Returns (name_x, name_o)."""
+    # the 'or' fallback kicks in if the player just hits Enter (empty string is falsy)
+    name_x = input("Enter name for Player X: ").strip() or "Player X"
+    name_o = input("Enter name for Player O: ").strip() or "Player O"
+    return name_x, name_o
+
+
+# Score Tracking
+
+
+def print_scoreboard(scores, names):
+    """Display the current win/draw/loss record for both players."""
+    # scores is a dict with keys 'X', 'O', and 'draws'
+    name_x, name_o = names
+    print(f"{BOLD}─── Scoreboard ───{RESET}")
+    print(f"  {RED}{name_x}{RESET}:  {scores['X']} wins  |  {scores['draws']} draws  |  {CYAN}{name_o}{RESET}: {scores['O']} wins")
+    print()
+
+
 # Game Modes
 
 
-def play_game():
-    """Main game loop."""
+def play_game(scores, names):
+    """
+    Main game loop for a single round.
+    Returns the winner symbol ('X', 'O') or 'draw'.
+    """
     # 2D list, each inner list is a row, each element is a cell (" ", "X", or "O")
     board = [[" " for _ in range(3)] for _ in range(3)]
     players = ["X", "O"]
     current = 0  # index into players list, toggles between 0 and 1
+    name_x, name_o = names
 
-    print("Welcome to Tic-Tac-Toe!")
+    clear_screen()
+    print_scoreboard(scores, names)
+    print(f"{BOLD}New Round — {name_x} (X) vs {name_o} (O){RESET}")
     print_board(board)
 
     while True:
         player = players[current]
+        display_name = name_x if player == "X" else name_o
 
+        print(f"{BOLD}{display_name}'s turn ({player}){RESET}")
         row, col = get_move(board, player)
+
         board[row][col] = player
 
         clear_screen()
+        print_scoreboard(scores, names)
         print_board(board)
 
         # check win/draw after every move, no point checking before at least 5 moves,
         # but keeping it simple here is fine for a 3x3 board
         if check_winner(board, player):
-            print(f"Player {player} wins! Congratulations!")
-            break
+            winner_name = name_x if player == "X" else name_o
+            print(f"{GREEN}{BOLD}{winner_name} wins!{RESET}\n")
+            return player
 
         if is_draw(board):
-            print("It's a draw! Well played by both players.")
-            break
+            print(f"{YELLOW}{BOLD}It's a draw! Well played by both players.{RESET}\n")
+            return "draw"
 
         # toggle current between 0 and 1, 1 - 0 = 1, 1 - 1 = 0
         current = 1 - current
 
 
+# Main Menu
+
+
+def main_menu():
+    """Display the main menu and return the user's choice."""
+    print(f"{BOLD}{'─'*32}{RESET}")
+    print(f"{YELLOW}{BOLD}    TIC-TAC-TOE{RESET}")
+    print(f"{BOLD}{'─'*32}{RESET}")
+    print("  (1) 2-Player Mode")
+    print("  (2) Quit")
+    print(f"{BOLD}{'─'*32}{RESET}")
+    while True:
+        choice = input("Select an option: ").strip()
+        if choice in ("1", "2"):
+            return choice
+        print("Invalid choice. Enter 1 or 2.")
+
+
+def play_again_prompt():
+    """Ask the players if they want to play another round. Returns True/False."""
+    while True:
+        choice = input("Play again? (y/n): ").strip().lower()
+        if choice == "y":
+            return True
+        elif choice == "n":
+            return False
+        else:
+            print("Invalid input. Enter y or n.")
+
+
+# Entry Point
+
+
+def main():
+    """Entry point: show menu, run sessions, track scores across rounds."""
+    clear_screen()
+    while True:
+        choice = main_menu()
+
+        if choice == "2":
+            print("\nThanks for playing! Goodbye.\n")
+            break
+
+        names = get_player_names()
+        scores = {"X": 0, "O": 0, "draws": 0}  # dict to track wins and draws across rounds
+
+        while True:
+            result = play_game(scores, names)
+
+            if result == "draw":
+                scores["draws"] += 1
+            else:
+                # result is either "X" or "O", so we can use it directly as a dict key
+                scores[result] += 1
+
+            print_scoreboard(scores, names)
+
+            if not play_again_prompt():
+                break
+
+        clear_screen()
+
+
 if __name__ == "__main__":
-    play_game()
+    main()
