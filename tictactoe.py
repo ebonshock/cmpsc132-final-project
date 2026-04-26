@@ -103,11 +103,25 @@ def is_draw(board):
 # Input Helpers
 
 
-def get_move(board, player):
-    """Prompt the current player for a valid move and return (row, col)."""
+def get_move(board, player, history):
+    """
+    Prompt the current player for a valid move.
+    Type 'u' to undo the last two moves (one per player).
+    Returns (row, col) or the string 'undo'.
+    """
     while True:
         try:
-            row = int(input(f"Player {player} - Enter ROW # (0-2): "))
+            # read as a string first so we can check for the 'u' undo command
+            raw = input(f"Player {player} - Enter ROW # (0-2) or 'u' to undo: ").strip().lower()
+
+            if raw == "u":
+                # need at least 2 moves in history to undo one full round of turns
+                if len(history) < 2:
+                    print("Not enough moves to undo. Try again.")
+                    continue
+                return "undo"
+
+            row = int(raw)  # convert to int after ruling out the 'u' case
             col = int(input(f"Player {player} - Enter COLUMN # (0-2): "))
 
             # bounds check, range(3) gives [0, 1, 2]
@@ -153,17 +167,20 @@ def print_scoreboard(scores, names):
 def play_game(scores, names):
     """
     Main game loop for a single round.
-    Returns the winner symbol ('X', 'O') or 'draw'.
+    Supports undo (type 'u' at the row prompt to revert the last two moves).
+    Returns the winner symbol ('X', 'O') or 'draw', and the full move history.
     """
     # 2D list, each inner list is a row, each element is a cell (" ", "X", or "O")
     board = [[" " for _ in range(3)] for _ in range(3)]
     players = ["X", "O"]
     current = 0  # index into players list, toggles between 0 and 1
+    history = []  # list of (player, row, col) tuples, used as a stack for undo
     name_x, name_o = names
 
     clear_screen()
     print_scoreboard(scores, names)
     print(f"{BOLD}New Round — {name_x} (X) vs {name_o} (O){RESET}")
+    print(f"{YELLOW}Tip: type 'u' at the row prompt to undo the last two moves.{RESET}")
     print_board(board)
 
     while True:
@@ -171,9 +188,26 @@ def play_game(scores, names):
         display_name = name_x if player == "X" else name_o
 
         print(f"{BOLD}{display_name}'s turn ({player}){RESET}")
-        row, col = get_move(board, player)
+        result = get_move(board, player, history)
 
+        # undo branch, pop the last two moves off the stack and clear those cells
+        if result == "undo":
+            _, prev_row, prev_col = history.pop()  # .pop() removes and returns the last item
+            board[prev_row][prev_col] = " "
+
+            _, prev_row, prev_col = history.pop()
+            board[prev_row][prev_col] = " "
+
+            # undoing both players' last moves leaves current unchanged, no need to toggle
+            clear_screen()
+            print_scoreboard(scores, names)
+            print(f"{YELLOW}Undo successful. Two moves reversed.{RESET}")
+            print_board(board)
+            continue
+
+        row, col = result
         board[row][col] = player
+        history.append((player, row, col))  # push this move onto the stack
 
         clear_screen()
         print_scoreboard(scores, names)
@@ -184,11 +218,11 @@ def play_game(scores, names):
         if check_winner(board, player):
             winner_name = name_x if player == "X" else name_o
             print(f"{GREEN}{BOLD}{winner_name} wins!{RESET}\n")
-            return player
+            return player, history
 
         if is_draw(board):
             print(f"{YELLOW}{BOLD}It's a draw! Well played by both players.{RESET}\n")
-            return "draw"
+            return "draw", history
 
         # toggle current between 0 and 1, 1 - 0 = 1, 1 - 1 = 0
         current = 1 - current
@@ -241,7 +275,8 @@ def main():
         scores = {"X": 0, "O": 0, "draws": 0}  # dict to track wins and draws across rounds
 
         while True:
-            result = play_game(scores, names)
+            # play_game now returns a tuple — unpack both the result and the move history
+            result, history = play_game(scores, names)
 
             if result == "draw":
                 scores["draws"] += 1
