@@ -1,9 +1,10 @@
-# CMPSC 132 - Final Project
+# CMPSC 132 - Final Project (Enhanced)
 # Tic-Tac-Toe Game (2-Player, Terminal-Based)
 # Author: Evan Bonshock
 
 
 import os
+import time
 
 
 # ANSI escape codes for terminal colors and text formatting
@@ -102,7 +103,6 @@ def is_draw(board):
 
 # Input Helpers
 
-
 def get_move(board, player, history):
     """
     Prompt the current player for a valid move.
@@ -151,7 +151,6 @@ def get_player_names():
 
 # Score Tracking
 
-
 def print_scoreboard(scores, names):
     """Display the current win/draw/loss record for both players."""
     # scores is a dict with keys 'X', 'O', and 'draws'
@@ -161,8 +160,48 @@ def print_scoreboard(scores, names):
     print()
 
 
-# Game Modes
+# Replay
 
+def replay_game(history, scores, names):
+    """
+    Step through each move in history, reprinting the board after each one.
+    Pauses briefly between moves so the replay is easy to follow.
+    """
+    # start from a blank board and reapply each move in order
+    board = [[" " for _ in range(3)] for _ in range(3)]
+
+    clear_screen()
+    print_scoreboard(scores, names)
+    print(f"{BOLD}─── Replay ───{RESET}")
+    print_board(board)
+    time.sleep(1)
+
+    # enumerate gives us the move number alongside each (player, row, col) tuple
+    for i, (player, row, col) in enumerate(history):
+        board[row][col] = player
+        clear_screen()
+        print_scoreboard(scores, names)
+        print(f"{BOLD}─── Replay — Move {i + 1} ───{RESET}")
+        print_board(board)
+        time.sleep(0.8)
+
+    input("Press Enter to continue...")
+
+
+def replay_prompt(history, scores, names):
+    """Ask if players want to replay the last round. Runs replay if yes."""
+    while True:
+        choice = input("View replay of last round? (y/n): ").strip().lower()
+        if choice == "y":
+            replay_game(history, scores, names)
+            return
+        elif choice == "n":
+            return
+        else:
+            print("Invalid input. Enter y or n.")
+
+
+# Game Modes
 
 def play_game(scores, names):
     """
@@ -192,13 +231,13 @@ def play_game(scores, names):
 
         # undo branch, pop the last two moves off the stack and clear those cells
         if result == "undo":
-            _, prev_row, prev_col = history.pop()  # .pop() removes and returns the last item
+            _, prev_row, prev_col = history.pop()
             board[prev_row][prev_col] = " "
 
             _, prev_row, prev_col = history.pop()
             board[prev_row][prev_col] = " "
 
-            # undoing both players' last moves leaves current unchanged, no need to toggle
+            # undoing both players last moves leaves current unchanged, no need to toggle
             clear_screen()
             print_scoreboard(scores, names)
             print(f"{YELLOW}Undo successful. Two moves reversed.{RESET}")
@@ -213,8 +252,7 @@ def play_game(scores, names):
         print_scoreboard(scores, names)
         print_board(board)
 
-        # check win/draw after every move, no point checking before at least 5 moves,
-        # but keeping it simple here is fine for a 3x3 board
+        # check win/draw after every move
         if check_winner(board, player):
             winner_name = name_x if player == "X" else name_o
             print(f"{GREEN}{BOLD}{winner_name} wins!{RESET}\n")
@@ -229,7 +267,6 @@ def play_game(scores, names):
 
 
 # Main Menu
-
 
 def main_menu():
     """Display the main menu and return the user's choice."""
@@ -260,7 +297,6 @@ def play_again_prompt():
 
 # Entry Point
 
-
 def main():
     """Entry point: show menu, run sessions, track scores across rounds."""
     clear_screen()
@@ -275,7 +311,7 @@ def main():
         scores = {"X": 0, "O": 0, "draws": 0}  # dict to track wins and draws across rounds
 
         while True:
-            # play_game now returns a tuple — unpack both the result and the move history
+            # play_game now returns a tuple, unpack both the result and the move history
             result, history = play_game(scores, names)
 
             if result == "draw":
@@ -285,6 +321,7 @@ def main():
                 scores[result] += 1
 
             print_scoreboard(scores, names)
+            replay_prompt(history, scores, names)
 
             if not play_again_prompt():
                 break
